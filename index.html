@@ -721,6 +721,89 @@
     }
 
     .btn-send svg { width: 15px; height: 15px; fill: var(--bg); }
+
+    /* ── Viewport height — iOS Safari URL bar fix ── */
+
+    body  { height: 100svh; }
+    #app  { height: 100svh; }
+
+    /* ── Safe-area insets — notched iPhone ── */
+
+    .input-area {
+      padding-bottom: max(18px, env(safe-area-inset-bottom));
+    }
+
+    /* ── Smooth momentum scroll on touch ── */
+
+    .chat-area,
+    .sidebar-body {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+    }
+
+    /* ── Tablet (≤ 768px) ── */
+
+    @media (max-width: 768px) {
+      header { padding: 0 18px; }
+      .header-left { min-width: 100px; }
+      .header-right { min-width: 100px; }
+      .chat-area { padding: 28px 20px 12px; }
+      .input-area { padding-left: 18px; padding-right: 18px; }
+    }
+
+    /* ── Mobile (≤ 600px) ── */
+
+    @media (max-width: 600px) {
+      body { font-size: 14px; }
+
+      header {
+        padding: 0 14px;
+        height: 50px;
+      }
+
+      .sidebar { top: 50px; }
+
+      .header-left { min-width: 0; gap: 7px; }
+      .header-right { min-width: 0; gap: 5px; }
+
+      .wordmark { font-size: 15px; }
+
+      .mode-tab { padding: 5px 11px; font-size: 10px; letter-spacing: 0.04em; }
+
+      .model-select { display: none; }
+
+      .chat-area { padding: 20px 14px 8px; }
+
+      .input-area {
+        padding: 10px 14px max(14px, env(safe-area-inset-bottom));
+      }
+
+      textarea {
+        font-size: 16px; /* prevents iOS auto-zoom on focus */
+        padding: 10px 12px;
+      }
+
+      .empty-greeting { font-size: 22px; }
+      .empty-tagline  { font-size: 13px; margin-bottom: 24px; }
+      .empty-suggestions { gap: 8px; }
+
+      .suggestion-card { padding: 12px 14px; gap: 10px; }
+      .sug-text { font-size: 13px; }
+
+      .msg-user .msg-body     { font-size: 14px; }
+      .msg-advisor .msg-body  { font-size: 14px; line-height: 1.72; }
+
+      .setup-wordmark { font-size: 26px; }
+      #setup-screen,
+      #password-gate  { padding: 24px 20px; }
+    }
+
+    /* ── Very small phones (≤ 390px) ── */
+
+    @media (max-width: 390px) {
+      .wordmark { display: none; }
+      .mode-tab { padding: 5px 9px; }
+    }
   </style>
 </head>
 
