@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="caca-advisor-logo-png.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -58,6 +59,15 @@
     .setup-inner {
       max-width: 420px;
       width: 100%;
+    }
+
+    .setup-logo {
+      width: 52px;
+      height: 52px;
+      object-fit: contain;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      display: block;
     }
 
     .setup-wordmark {
@@ -187,6 +197,14 @@
       align-items: center;
       gap: 10px;
       min-width: 160px;
+    }
+
+    .header-logo {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      border-radius: 3px;
+      flex-shrink: 0;
     }
 
     .wordmark {
@@ -689,6 +707,7 @@
   <!-- ── Setup screen ── -->
   <div id="setup-screen">
     <div class="setup-inner">
+      <img src="caca-advisor-logo-png.png" alt="" class="setup-logo">
       <div class="setup-wordmark">Caca Advisor</div>
       <div class="setup-sub">Personal · Arza Nursatya</div>
       <hr class="setup-rule">
@@ -739,6 +758,7 @@
             <line x1="3" y1="18" x2="14" y2="18"/>
           </svg>
         </button>
+        <img src="caca-advisor-logo-png.png" alt="" class="header-logo">
         <span class="wordmark">Caca Advisor</span>
       </div>
 
