@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Caca Advisor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #f5f2ed;
+      --surface:  #ede9e2;
+      --border:   #d0cbc2;
+      --ink:      #1a1814;
+      --ink-soft: #4a4540;
+      --ink-faint:#8a8480;
+      --accent:   #b85c2a;
+      --mode-strategic:  #2a4a6b;
+      --mode-content:    #3d6b3a;
+
+      --mode-color:      var(--mode-strategic);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    body[data-mode="strategic"]  { --mode-color: var(--mode-strategic); }
+    body[data-mode="content"]    { --mode-color: var(--mode-content); }
+
+
+    /* ── Setup screen ── */
+
+    #setup-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      overflow-y: auto;
+      padding: 32px 24px;
+    }
+
+    .setup-inner {
+      max-width: 420px;
+      width: 100%;
+    }
+
+    .setup-wordmark {
+      font-family: 'Playfair Display', serif;
+      font-size: 30px;
+      font-weight: 400;
+      letter-spacing: -0.5px;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+
+    .setup-sub {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin-bottom: 44px;
+    }
+
+    .setup-rule {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin-bottom: 44px;
+    }
+
+    .setup-label {
+      display: block;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 8px;
+    }
+
+    .setup-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 11px 14px;
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.15s;
+      margin-bottom: 14px;
+      letter-spacing: 0.04em;
+    }
+
+    .setup-input:focus { border-color: var(--accent); }
+
+    .setup-btn {
+      width: 100%;
+      background: var(--ink);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      padding: 11px 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .setup-btn:hover { background: var(--accent); }
+
+    .setup-note {
+      margin-top: 18px;
+      font-size: 12px;
+      color: var(--ink-faint);
+      line-height: 1.6;
+    }
+
+    .setup-optional-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 4px 0 20px;
+    }
+
+    .setup-optional-divider::before,
+    .setup-optional-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .setup-optional-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      white-space: nowrap;
+    }
+
+    /* ── App shell ── */
+
+    #app {
+      display: none;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ── Header ── */
+
+    header {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 160px;
+    }
+
+    .wordmark {
+      font-family: 'Playfair Display', serif;
+      font-size: 17px;
+      font-weight: 400;
+      letter-spacing: -0.2px;
+      color: var(--ink);
+    }
+
+    /* Mode tabs */
+
+    .mode-tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px;
+    }
+
+    .mode-tab {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 5px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--ink-faint);
+      transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+    }
+
+    .mode-tab:hover:not(.active) { color: var(--ink-soft); }
+
+    .mode-tab.active {
+      background: var(--bg);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .mode-tab[data-mode="strategic"].active   { color: var(--mode-strategic); }
+    .mode-tab[data-mode="content"].active     { color: var(--mode-content); }
+
+
+    /* Header right */
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 160px;
+      justify-content: flex-end;
+    }
+
+    .model-select {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 22px 4px 8px;
+      color: var(--ink-faint);
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238a8480'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      transition: border-color 0.15s;
+    }
+
+    .model-select:focus { border-color: var(--accent); }
+
+    .btn-icon {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 9px;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .btn-icon:hover {
+      color: var(--ink-soft);
+      border-color: var(--ink-soft);
+    }
+
+    .btn-icon svg { display: block; }
+
+    /* ── Sidebar ── */
+
+    .sidebar {
+      position: fixed;
+      top: 54px;
+      left: 0;
+      bottom: 0;
+      width: 272px;
+      background: var(--bg);
+      border-right: 1px solid var(--border);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(-100%);
+      transition: transform 0.22s ease;
+    }
+
+    .sidebar.open { transform: translateX(0); }
+
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26,24,20,0.18);
+      z-index: 19;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+
+    .sidebar-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .sidebar-title {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+    }
+
+    .sidebar-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--ink-faint);
+      font-size: 18px;
+      line-height: 1;
+      padding: 0 2px;
+      border-radius: 3px;
+      transition: color 0.15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .sidebar-close:hover { color: var(--ink); }
+
+    .sidebar-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0 16px;
+    }
+
+    .sidebar-body::-webkit-scrollbar { width: 3px; }
+    .sidebar-body::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .sidebar-empty {
+      padding: 28px 16px;
+      font-size: 13px;
+      color: var(--ink-faint);
+      font-style: italic;
+    }
+
+    .sidebar-section-header {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      padding: 14px 16px 5px;
+    }
+
+    .sidebar-item {
+      padding: 9px 16px;
+      cursor: pointer;
+      transition: background 0.12s;
+      border-left: 2px solid transparent;
+    }
+
+    .sidebar-item:hover { background: var(--surface); }
+
+    .sidebar-item.active { background: var(--surface); }
+    .sidebar-item.active[data-mode="strategic"] { border-left-color: var(--mode-strategic); }
+    .sidebar-item.active[data-mode="content"]   { border-left-color: var(--mode-content); }
+
+    .sidebar-item-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .sidebar-item-mode {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 2px;
+    }
+
+    .sidebar-item-mode.mode-strategic { color: var(--mode-strategic); background: rgba(42,74,107,0.07); }
+    .sidebar-item-mode.mode-content   { color: var(--mode-content);   background: rgba(61,107,58,0.07); }
+
+    .sidebar-item-date {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--ink-faint);
+    }
+
+    .sidebar-item-preview {
+      font-size: 12px;
+      color: var(--ink-soft);
+      line-height: 1.45;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Chat area ── */
+
+    .chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 36px 28px 12px;
+      scroll-behavior: smooth;
+    }
+
+    .chat-area::-webkit-scrollbar { width: 4px; }
+    .chat-area::-webkit-scrollbar-track { background: transparent; }
+    .chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .chat-inner {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    /* ── Empty state ── */
+
+    .empty-state {
+      padding: 24px 0 40px;
+    }
+
+    .empty-greeting {
+      font-family: 'Playfair Display', serif;
+      font-size: 27px;
+      font-weight: 400;
+      color: var(--ink);
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+
+    .empty-tagline {
+      font-size: 14px;
+      color: var(--ink-faint);
+      margin-bottom: 36px;
+    }
+
+    .empty-suggestions { display: flex; flex-direction: column; gap: 10px; }
+
+    .suggestion-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 18px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .suggestion-card:hover {
+      border-color: var(--ink-soft);
+      background: var(--bg);
+    }
+
+    .sug-mode-tag {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .sug-mode-tag.strategic   { color: var(--mode-strategic);   background: rgba(42,74,107,0.07); }
+    .sug-mode-tag.content     { color: var(--mode-content);     background: rgba(61,107,58,0.07); }
+
+
+    .sug-text {
+      font-size: 14px;
+      color: var(--ink-soft);
+      line-height: 1.55;
+      font-style: italic;
+    }
+
+    /* ── Messages ── */
+
+    #messages { padding-bottom: 16px; }
+
+    .msg { margin-bottom: 30px; }
+
+    /* User message */
+    .msg-user {
+      padding-left: 18px;
+      border-left: 2px solid var(--border);
+    }
+
+    .msg-user .msg-body {
+      font-style: italic;
+      color: var(--ink-soft);
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    /* Advisor message */
+    .msg-advisor .msg-meta {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 11px;
+    }
+
+    .msg-advisor.mode-strategic   .msg-meta { color: var(--mode-strategic); }
+    .msg-advisor.mode-content     .msg-meta { color: var(--mode-content); }
+
+
+    .msg-advisor .msg-body {
+      font-size: 15px;
+      line-height: 1.78;
+      color: var(--ink);
+    }
+
+    .msg-advisor .msg-body p       { margin-bottom: 12px; }
+    .msg-advisor .msg-body p:last-child { margin-bottom: 0; }
+    .msg-advisor .msg-body ul,
+    .msg-advisor .msg-body ol      { margin: 10px 0 12px 20px; }
+    .msg-advisor .msg-body li      { margin-bottom: 5px; line-height: 1.65; }
+    .msg-advisor .msg-body strong  { font-weight: 500; }
+    .msg-advisor .msg-body code    { font-family: 'DM Mono', monospace; font-size: 13px; background: var(--surface); padding: 1px 5px; border-radius: 3px; }
+    .msg-advisor .msg-body h1,
+    .msg-advisor .msg-body h2,
+    .msg-advisor .msg-body h3 {
+      font-family: 'Playfair Display', serif;
+      font-weight: 400;
+      margin: 18px 0 8px;
+      line-height: 1.3;
+    }
+    .msg-advisor .msg-body h1 { font-size: 21px; }
+    .msg-advisor .msg-body h2 { font-size: 18px; }
+    .msg-advisor .msg-body h3 { font-size: 16px; }
+    .msg-advisor .msg-body blockquote {
+      border-left: 2px solid var(--border);
+      padding-left: 16px;
+      margin: 12px 0;
+      color: var(--ink-soft);
+      font-style: italic;
+    }
+    .msg-advisor .msg-body hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 16px 0;
+    }
+
+    /* Typing indicator */
+
+    .typing-dots {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      padding: 6px 0 2px;
+    }
+
+    .typing-dot {
+      width: 5px;
+      height: 5px;
+      background: var(--ink-faint);
+      border-radius: 50%;
+      animation: tdot 1.3s infinite ease-in-out;
+    }
+
+    .typing-dot:nth-child(2) { animation-delay: 0.18s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.36s; }
+
+    @keyframes tdot {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+      30%            { transform: translateY(-5px); opacity: 1; }
+    }
+
+    /* Error */
+
+    .msg-error {
+      background: rgba(184,92,42,0.07);
+      border: 1px solid rgba(184,92,42,0.18);
+      border-radius: 4px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--accent);
+      margin-bottom: 20px;
+    }
+
+    /* ── Input area ── */
+
+    .input-area {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 14px 28px 18px;
+      flex-shrink: 0;
+    }
+
+    .input-inner {
+      max-width: 760px;
+      margin: 0 auto;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .input-wrap {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+
+    .input-wrap:focus-within { border-color: var(--mode-color); }
+
+    textarea {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      padding: 11px 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      color: var(--ink);
+      resize: none;
+      line-height: 1.55;
+      max-height: 160px;
+      min-height: 44px;
+      display: block;
+    }
+
+    textarea::placeholder { color: var(--ink-faint); }
+
+    .btn-send {
+      background: var(--ink);
+      border: none;
+      border-radius: 6px;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+
+    .btn-send:hover:not(:disabled) { background: var(--accent); }
+
+    .btn-send:disabled {
+      background: var(--border);
+      cursor: not-allowed;
+    }
+
+    .btn-send svg { width: 15px; height: 15px; fill: var(--bg); }
+  </style>
+</head>
+
+<body data-mode="strategic">
+
+  <!-- ── Setup screen ── -->
+  <div id="setup-screen">
+    <div class="setup-inner">
+      <div class="setup-wordmark">Caca Advisor</div>
+      <div class="setup-sub">Personal · Arza Nursatya</div>
+      <hr class="setup-rule">
+      <label class="setup-label" for="api-key-input">Anthropic API Key</label>
+      <input
+        type="password"
+        id="api-key-input"
+        class="setup-input"
+        placeholder="sk-ant-api03-..."
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <div class="setup-optional-divider">
+        <span class="setup-optional-label">Chat History — optional</span>
+      </div>
+      <label class="setup-label" for="sb-url-input">Supabase URL</label>
+      <input
+        type="text"
+        id="sb-url-input"
+        class="setup-input"
+        placeholder="https://xxxx.supabase.co"
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <label class="setup-label" for="sb-key-input">Supabase Anon Key</label>
+      <input
+        type="text"
+        id="sb-key-input"
+        class="setup-input"
+        placeholder="eyJhbGci…"
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <button class="setup-btn" id="save-key-btn">Continue</button>
+      <p class="setup-note">Keys are stored only in this browser's localStorage. Supabase credentials enable persistent chat history across devices.</p>
+    </div>
+  </div>
+
+  <!-- ── Main app ── -->
+  <div id="app">
+
+    <header>
+      <div class="header-left">
+        <button class="btn-icon" id="sidebar-toggle-btn" title="Chat history" style="display:none">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="14" y2="18"/>
+          </svg>
+        </button>
+        <span class="wordmark">Caca Advisor</span>
+      </div>
+
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="strategic">Strategic</button>
+        <button class="mode-tab" data-mode="content">Content</button>
+      </div>
+
+      <div class="header-right">
+        <select class="model-select" id="model-select">
+          <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+          <option value="claude-opus-4-7">Opus 4.7</option>
+        </select>
+        <button class="btn-icon" id="clear-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3h18M3 9h18M3 15h10"/><path d="m16 15 6 6m0-6-6 6"/>
+          </svg>
+          New
+        </button>
+        <button class="btn-icon" id="change-key-btn" title="Settings">
+          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="7.5" cy="15.5" r="5.5"/>
+            <path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── Sidebar ── -->
+    <div id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title">History</span>
+        <button class="sidebar-close" id="sidebar-close-btn" aria-label="Close">×</button>
+      </div>
+      <div class="sidebar-body" id="sidebar-body">
+        <div class="sidebar-empty">No conversations yet.</div>
+      </div>
+    </div>
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+    <div class="chat-area" id="chat-area">
+      <div class="chat-inner" id="chat-inner">
+
+        <div class="empty-state" id="empty-state">
+          <div class="empty-greeting">Good to have you back, <em>Caca.</em></div>
+          <div class="empty-tagline">What are we working through today?</div>
+          <div class="empty-suggestions">
+            <div class="suggestion-card" data-mode="strategic" data-text="I want to think through whether HIRA should start targeting PR agencies.">
+              <span class="sug-mode-tag strategic">Strategic</span>
+              <span class="sug-text">I want to think through whether HIRA should start targeting PR agencies.</span>
+            </div>
+            <div class="suggestion-card" data-mode="content" data-text="I shot a sardine campaign last month. Help me find a story worth telling.">
+              <span class="sug-mode-tag content">Content</span>
+              <span class="sug-text">I shot a sardine campaign last month. Help me find a story worth telling.</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="messages"></div>
+
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-inner">
+        <div class="input-wrap">
+          <textarea id="message-input" placeholder="Write something…" rows="1"></textarea>
+        </div>
+        <button class="btn-send" id="send-btn" aria-label="Send">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /* ── Context document ── */
+    const CONTEXT_DOCUMENT = `# Caca Advisor — Context Document
+*Paste this at the start of any session where you want Claude to operate as your personal advisor.*
+*Last updated: May 2026*
+
+---
+
+## 01 · Who I am & what HIRA is
+
+**Arza "Caca" Nursatya** — employee and head of creative department at HIRA Imaji, Jakarta. In-house photographer turned creative leader. Joined HIRA in 2017 as the first to graduate from the company's apprenticeship program. Currently the commercial revenue anchor of the photographer roster.
+
+**HIRA Imaji** is a photography-based advertising production company. The medium is photography — that's the only one. But the identity is really about production excellence across every dimension: from the first briefing to the final deliverable. Photography is not a constraint; it's the craft context inside which everything else has to be equally good.
+
+That means: the room smells right, the food on set is good, the Wi-Fi is reliable, the art team is ready, the glam team is on time, the producer has thought through contingencies, the client service is warm and clear. Great photography surrounded by a sloppy production is still a failure. HIRA's signature is that everyone — photographer, assistant, producer, client service, art team, glam, security, cleaner — is in full work mode on the same day. That holistic standard is what HIRA protects and tries to elevate.
+
+On AI and compositing: HIRA uses whatever the client needs and whatever serves the production. Real setups are the default because on production day, everything is visible to everyone and real is often the cleanest approach. But heavy compositing is equally valid — Arza has a background as a digital imaging artist and uses it regularly. The medium decision follows the brief, not an ideology.
+
+HIRA operates across commercial lifestyle, kids, beauty/skincare, still life, food, and edgy/contemporary niches. Clients come through agencies and direct.
+
+---
+
+## 02 · HIRA's current strategic direction
+
+HIRA is navigating an industry under AI disruption. The strategic position is not "photography vs. AI" — it's production excellence as the differentiator. The bet is that clients who care about quality (of output, of process, of experience) will pay for it. AI is a tool in that service, not a threat to be defended against.
+
+Key differentiators to develop and protect:
+- Holistic production standard (every role, every detail, every day)
+- An apprenticeship pipeline that builds photographers from within
+- A diverse roster that covers multiple niches with distinct voices
+- Compositing capability (Arza's DI background) as a production asset
+
+**The positioning problem to solve:** HIRA needs to be seen as the premium safe option *and* the creatively interesting option — not just one or the other. Currently, the roster skews toward "safe commercial" with isolated pockets of edge (Yogo, Vony). Closing that gap is a medium-term strategic priority.
+
+**Competitive context:** Indonesian advertising production is crowded. Agencies are cost-pressured. AI is being used by some clients to bypass production entirely. HIRA's response must be value-based, not price-based.
+
+**Known active competitors:**
+
+**Willy Koesnadi — Digital Active**
+~12 years senior to Arza. Current king of FMCG tactical campaigns. 3 active photographers total. Style: very Indonesian, commercially safe. Reputation and long client relationships are his primary moat — HIRA consistently loses FMCG/F&B briefs to him even when undercutting on budget. Experience and trust are doing the work that portfolio alone can't.
+
+**Jimmy Lee — Kurvatura Creatives**
+Former HIRA intern. Left after ~1 month; production methods, lighting setups, and studio culture are strikingly similar to HIRA's (confirmed by shared vendor). Lean operation: Jimmy + girlfriend Suri as only employees, rest freelance — low overhead, flexible on budget. Communication style: snake-oil salesman, but he delivers. Has beaten HIRA on several briefs this year. Not a low-quality competitor.
+
+**Norman Fideli — Wave Studio** (main photographer: Ifan Hartanto)
+Niche overlap with Arza: general lifestyle, commercially safe. Currently very active with Gojek campaigns. Context: HIRA had Gojek from 2017–2021 at significantly higher budgets with a stronger creative team on the client side. Current Gojek work is lower budget, different team. HIRA's absence there is situational, not a capability gap.
+
+**Niki Maski — Yatta**
+Also general lifestyle, commercially safe. Communication style similar to Jimmy — tends to oversell. Direct niche competitor to Arza.
+
+---
+
+## 03 · The photographer roster I lead and mentor
+
+There are 5 photographers at HIRA, including me. My role as creative head means I'm responsible for the development of all of them — while also being one of the photographers myself. This dual role is a structural tension I'm actively navigating.
+
+### Tier 1 (First-tier — founders/seniors)
+
+**Adhitya Himawan (CEO)**
+Outgoing backbone. Reliable, steady. Holds ~30–35% of HIRA's revenue. The benchmark Arza is intended to replace on the revenue side.
+
+**Adi Prawira (COO)**
+Holds ~30% of revenue. The Tortured Maestro. Highest artistic and technical output in the company, but low confidence and tends to over-prepare. High friction, low volume. Needs protection from burnout — this is a strategic risk as much as a personal one.
+
+**Indra Dipta (Inactive / Problem)**
+The Liability. Lowest technical skill on the tier, requires post-production fixes, distracted by outside interests (stocks, games), came from a competitor. Currently strategic dead weight. Ester is intended to absorb his niche (kids + beauty/skincare) as he phases out.
+
+**Nurulita Adriani (Associate — Veteran)**
+Independent operator. Fashion photography background; currently focused on corporate work for cash flow. Old school but eager. Not a full-time employee — engaged per project.
+
+### Tier 2 (Second-tier — active photographers, my peers and direct mentees)
+
+**Arza / Caca (me)**
+Specialties: High-volume commercial, general lifestyle, still life. Currently seen by clients as the safe commercial option. Intended to replace Adhitya in revenue terms. Need to move to a first-tier/leadership position within 2–3 years — which means I also need to develop beyond the "safe option" identity.
+
+**Ester Setiawan** — Employee
+Calm, structured, client-safe. Former assistant; second to graduate from the apprenticeship program. Intended heir to Indra Dipta's kids + beauty/skincare niche. Needs 1–2 years of intentional portfolio building to establish that positioning credibly. Currently underestimated relative to her actual capability.
+
+**Yusef Achmadi** — Employee (Head of Crew & Assistant)
+HIRA since 2019. Excellent lighting skills. Has not yet graduated from the apprenticeship program — not because of capability, but because he's reluctant to leave his role as Head of Crew. The reluctance reads as low confidence, not disinterest. Longest pipeline to becoming a working photographer. Needs a different kind of push than the others.
+
+**Prayogo "Yogo" Yoedo** — Associate
+Left the apprenticeship program due to health issues; returned and was offered an associate contract. The Edgy Artiste. High talent, ADHD, strong still life and food work, contemporary network and sensibility. Not a full-time employee — comes in per project. Creative ceiling is high; the challenge is consistency and harnessing the energy.
+
+**Vony Wong** — Associate
+Also a former assistant. Left, returned, offered associate position. The Wildcard. Difficult personality; technically weaker than the others; but owns a weird/celeb/controversial niche with high polarity. Her portfolio reads cooler and more diverse than Ester's to outside eyes, even if the field experience tells a different story. Market for her is specific but real. As a female photographer she carries a visibility advantage in certain briefs.
+
+### Mentoring philosophy
+Develop each photographer toward a *distinct and defensible niche*, not toward a generic commercial capability. HIRA doesn't need five photographers who can all shoot the same thing. Each person's personality and instinct is part of their commercial identity — the job is to shape that, not flatten it.
+
+---
+
+## 04 · Current priorities & live workstreams
+
+**Revenue status:** Quiet period. No approved projects currently assigned to me, Ester, Yusef, or Yogo. Vony has 2 projects completing this week. This is a stressful stretch — particularly because my role carries revenue expectation.
+
+**Last active pitch:** Smartfren "Aman" / #DiSiniDiSanaAman campaign through agency Salvo. HIRA positioned as photography-first production partner. Status: pending.
+
+**Ongoing internal work:**
+- Apprenticeship program management (particularly Yusef's stalled progression)
+- Roster positioning and portfolio gap identification (Ester's portfolio build)
+- HIRA's strategic repositioning in the face of AI disruption
+
+**Current diagnosis on visibility:** HIRA has a perception problem, not a capability problem. From the outside, HIRA reads as expensive, intimidating, and only suitable for difficult/complex jobs — three barriers before a new client makes first contact. As Arza put it: *"From outside we're like snob kids that are unreachable and scary. People have to work with us first to know that assumption is wrong."* The Japanese craftsman culture (silent, serious, let the work speak) works at a certain level of fame. HIRA is not yet at that level, so the culture costs visibility without delivering the prestige payoff. An open question remains: HIRA has no systematic way of collecting outside perspective — most market intelligence comes from reading the room on pitches and word of mouth.
+
+**Pond size problem:** The total addressable market is smaller than it looks. Big agencies in Jakarta number fewer than 20. Vendor rotation is partly political (agencies rotating to avoid nepotism accusations), not purely merit-based. HIRA currently has almost no presence in smaller agencies, PR agencies, or brand teams outside of existing relationships. This absence is not a deliberate choice — it has simply never been prioritized, and has calcified into a comfort zone around the existing agency pipeline. That pipeline is fragile, and Arza knows it.
+
+**On alternative income streams:** Workshops and prewedding have been discussed at middle management level as potential new income streams. HIRA has R&D budget capacity (currently used to subsidize next-gen photographer pitches below cost, as market-buying). The instinct to explore alternatives is sound. The risk is using them as displacement activity when the core pond feels hard, rather than genuine strategic expansion. This needs a decision at leadership level — not just middle management conversation.
+
+**Organizational structure note:** Directly above Arza is Edna, shadow COO, former agency account manager (2010–2018). Her mental model of the industry is dated — she still operates in "working hours" logic in an industry that moved away from that in the 90s. She is a structural friction point for new initiatives. Adi Prawira is the actual COO. Adhitya (CEO) will support new moves as long as there is proof of profit — he needs evidence before committing, not ideas.
+
+*This section should be updated regularly as projects come in and context changes.*
+
+## 04b · Arza's personal trajectory
+
+**The 2–3 year window:** Arza's stated path is to move to first tier within 2–3 years. What this means in practice: photographer fee raised to slightly below Adi and Adhitya's level (currently ~15–20M, target ~35–40M per project). But the path is abstract — "develop more style and character," "improve persuasion with clients." No formal milestones, no strategy. Growth is treated as Arza's own responsibility. Success will only be visible in hindsight, measured by numbers.
+
+**The honest scenario:** If nothing changes organizationally — same structure, same Edna, same "proof first" culture, same defensive posture ("strategy is to survive this year") — Arza's situation in 3 years looks similar to today. Arza has named this clearly and is privately considering resignation within that window if things don't move, potentially transitioning to an associate model like Yogo or Vony for more freedom.
+
+**Personal brand gap:** Most of Arza's energy has gone into HIRA as an institution. Personal brand has been an afterthought. This needs to change — not as disloyalty to HIRA, but because a stronger personal brand makes Arza more valuable everywhere, including at HIRA. Arza has abundant raw material (past projects, technical expertise, DI background, production philosophy) but the starting point is the hardest part. The "curse of expertise" is real here: what feels ordinary to Arza reads as remarkable to outsiders. The advisor's job includes helping identify which parts of Arza's ordinary are actually worth telling.
+
+**Content platforms in play:** Instagram (~1,200 followers), LinkedIn, potentially Behance and YouTube. Prefers writing over talking. Posting style should be tasteful, not cheap or overly casual. Avoids clichéd phrasing. Proper Bahasa Indonesia for official posts.
+
+---
+
+**Primary advisory modes** (all active, use judgment on which leads):
+- Challenge my thinking — push back when I'm rationalizing instead of reasoning
+- Mentor me as a leader — help me think about my people, not just my projects
+- Strategic sounding board — business positioning is the highest-priority lens
+- Help me execute and ship — when I know what I want, help me move fast
+
+**When I'm heading in the wrong direction:** Don't tell me directly. Ask questions until I see it myself. I respond better to realizing something than to being told it.
+
+**Tone:** Calm, direct, no flattery. Treat me as a capable adult who sometimes needs to be slowed down. I tend to overshare and go wide — help me focus.
+
+**Language:** Default to English. Mirror Indonesian if I write in Indonesian.
+
+---
+
+## 06 · Frameworks I work with
+
+Reference these when relevant. Don't over-explain them — assume I know them.
+
+- **Minto Pyramid Principle** — for structuring pitches, decks, communication
+- **OKRs** (*Measure What Matters*) — for goal-setting and team alignment
+- **Cialdini's Influence** — for client communication and persuasion
+- **Resource-Based View (RBV) / Porter** — for competitive positioning and strategy
+- **Advertising aesthetics reference** — Japan is the long-term aspiration (restraint, craft, intentionality), but Thailand and Vietnam are the more realistic near-term benchmarks. Demographically and socioeconomically, Indonesia maps closer to those two markets than to Japan. Use them as the practical creative reference point.
+
+---
+
+## 07 · What I don't want from this advisor
+
+- No flattery or validation-first responses
+- No generic advice that doesn't account for the Indonesian market or HIRA's specific context
+- Don't try to combine all advisory roles at once — let the topic of the conversation lead
+- Don't assume quiet periods mean everything is fine
+- Don't treat the photographer roster as a resource list — they're people with real dynamics
+- If I'm venting, let me finish before problem-solving
+
+---
+
+*End of context document. Begin advisory session.*`;
+
+    /* ── Mode definitions ── */
+    const MODES = {
+      strategic: {
+        name: 'Strategic',
+        addendum: 'The user is in Strategic mode. Lead with the business and positioning lens. Challenge assumptions. Ask questions before giving conclusions. Think 6–18 months ahead.'
+      },
+      content: {
+        name: 'Content',
+        addendum: "The user is in Content mode. Help extract the story from a project or experience. Ask one focused question to break the blank page. Then find the angle, suggest the format, and draft an opening. Don't produce final copy unprompted — guide first, draft when asked."
+      },
+    };
+
+    /* ── State ── */
+    let conversationHistory = [];
+    let currentMode = 'strategic';
+    let isStreaming = false;
+    let currentChatId = null;
+    let supabaseClient = null;
+    let cachedChats = [];
+
+    /* ── Storage ── */
+    const getApiKey      = () => localStorage.getItem('hira_advisor_api_key') || '';
+    const setApiKey      = k => localStorage.setItem('hira_advisor_api_key', k);
+    const getModel       = () => localStorage.getItem('hira_advisor_model') || 'claude-sonnet-4-6';
+    const setModel       = m => localStorage.setItem('hira_advisor_model', m);
+    const getSupabaseUrl = () => localStorage.getItem('hira_sb_url') || '';
+    const setSupabaseUrl = u => localStorage.setItem('hira_sb_url', u);
+    const getSupabaseKey = () => localStorage.getItem('hira_sb_key') || '';
+    const setSupabaseKey = k => localStorage.setItem('hira_sb_key', k);
+
+    /* ── Supabase ── */
+    function initSupabase() {
+      const url = getSupabaseUrl();
+      const key = getSupabaseKey();
+      if (url && key && window.supabase) {
+        supabaseClient = window.supabase.createClient(url, key);
+        return true;
+      }
+      supabaseClient = null;
+      return false;
+    }
+
+    async function dbCreateChat(mode, messages) {
+      if (!supabaseClient) return null;
+      try {
+        const { data, error } = await supabaseClient
+          .from('chats')
+          .insert({ mode, messages })
+          .select('id')
+          .single();
+        if (error) throw error;
+        return data.id;
+      } catch (_) { return null; }
+    }
+
+    async function dbUpdateChat(id, messages) {
+      if (!supabaseClient || !id) return;
+      try {
+        await supabaseClient
+          .from('chats')
+          .update({ messages, updated_at: new Date().toISOString() })
+          .eq('id', id);
+      } catch (_) {}
+    }
+
+    async function dbLoadChats() {
+      if (!supabaseClient) return [];
+      try {
+        const { data } = await supabaseClient
+          .from('chats')
+          .select('id, mode, messages, updated_at')
+          .order('updated_at', { ascending: false });
+        return data || [];
+      } catch (_) { return []; }
+    }
+
+    /* ── Sidebar ── */
+    function esc(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function fmtDate(iso) {
+      return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    }
+
+    function chatItemHtml(chat) {
+      const firstUser = chat.messages.find(m => m.role === 'user');
+      const raw = firstUser ? firstUser.content : '—';
+      const preview = raw.length > 60 ? raw.slice(0, 60) + '…' : raw;
+      const active = chat.id === currentChatId ? ' active' : '';
+      return `<div class="sidebar-item${active}" data-id="${esc(chat.id)}" data-mode="${esc(chat.mode)}">
+        <div class="sidebar-item-top">
+          <span class="sidebar-item-mode mode-${esc(chat.mode)}">${esc(MODES[chat.mode] ? MODES[chat.mode].name : chat.mode)}</span>
+          <span class="sidebar-item-date">${fmtDate(chat.updated_at)}</span>
+        </div>
+        <div class="sidebar-item-preview">${esc(preview)}</div>
+      </div>`;
+    }
+
+    function renderSidebar(chats) {
+      const body = document.getElementById('sidebar-body');
+      if (!chats.length) {
+        body.innerHTML = '<div class="sidebar-empty">No conversations yet.</div>';
+        return;
+      }
+      const strategic = chats.filter(c => c.mode === 'strategic');
+      const content   = chats.filter(c => c.mode === 'content');
+      let html = '';
+      if (strategic.length) {
+        html += '<div class="sidebar-section-header">Strategic</div>';
+        html += strategic.map(chatItemHtml).join('');
+      }
+      if (content.length) {
+        html += '<div class="sidebar-section-header">Content</div>';
+        html += content.map(chatItemHtml).join('');
+      }
+      body.innerHTML = html;
+      body.querySelectorAll('.sidebar-item').forEach(el => {
+        el.addEventListener('click', () => loadHistoryChat(el.dataset.id));
+      });
+    }
+
+    async function refreshSidebar() {
+      cachedChats = await dbLoadChats();
+      renderSidebar(cachedChats);
+    }
+
+    function openSidebar() {
+      document.getElementById('sidebar').classList.add('open');
+      document.getElementById('sidebar-overlay').classList.add('visible');
+      if (supabaseClient) refreshSidebar();
+    }
+
+    function closeSidebar() {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebar-overlay').classList.remove('visible');
+    }
+
+    async function loadHistoryChat(id) {
+      const chat = cachedChats.find(c => c.id === id);
+      if (!chat) return;
+
+      currentChatId = chat.id;
+      conversationHistory = JSON.parse(JSON.stringify(chat.messages));
+      setMode(chat.mode);
+
+      document.getElementById('messages').innerHTML = '';
+      hideEmptyState();
+
+      for (const msg of conversationHistory) {
+        if (msg.role === 'user') {
+          const el = document.createElement('div');
+          el.className = 'msg msg-user';
+          el.innerHTML = '<div class="msg-body">' +
+            msg.content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') +
+            '</div>';
+          document.getElementById('messages').appendChild(el);
+        } else {
+          const el = document.createElement('div');
+          el.className = 'msg msg-advisor mode-' + chat.mode;
+          el.innerHTML = '<div class="msg-meta">' + esc(MODES[chat.mode].name) + '</div><div class="msg-body"></div>';
+          document.getElementById('messages').appendChild(el);
+          el.querySelector('.msg-body').innerHTML = renderMarkdown(msg.content);
+        }
+      }
+
+      scrollBottom();
+      renderSidebar(cachedChats);
+      closeSidebar();
+    }
+
+    /* ── System prompt ── */
+    function buildSystemPrompt() {
+      const mode = MODES[currentMode];
+      return `${CONTEXT_DOCUMENT}
+
+---
+
+CURRENT SESSION MODE:
+${mode.addendum}
+
+---
+
+ADVISOR IDENTITY:
+You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indonesian advertising production industry, photography as a craft and business, human capital development, marketing/brand strategy. You operate across all three modes fluidly. You are not a cheerleader — you are a thinking partner who respects Arza's intelligence and time. You ask questions before giving answers when the situation calls for it. You are direct, calm, and honest. You never give generic advice. You never flatter. When Arza is venting, you let them finish before problem-solving. You default to English but mirror Indonesian if Arza writes in Indonesian.`;
+    }
+
+    /* ── Markdown renderer ── */
+    function renderMarkdown(raw) {
+      function escapeHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+
+      function inline(s) {
+        return s
+          .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/__(.*?)__/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+          .replace(/_(.*?)_/g, '<em>$1</em>')
+          .replace(/`(.*?)`/g, '<code>$1</code>');
+      }
+
+      const lines = escapeHtml(raw).split('\n');
+      const out = [];
+      let paraLines = [];
+      let listType = null;
+
+      function flushPara() {
+        if (!paraLines.length) return;
+        const joined = paraLines.join(' ').trim();
+        if (joined) out.push('<p>' + inline(joined) + '</p>');
+        paraLines = [];
+      }
+
+      function flushList() {
+        if (listType) { out.push('</' + listType + '>'); listType = null; }
+      }
+
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+
+        if (/^### /.test(l)) {
+          flushPara(); flushList();
+          out.push('<h3>' + inline(l.slice(4)) + '</h3>');
+          continue;
+        }
+        if (/^## /.test(l)) {
+          flushPara(); flushList();
+          out.push('<h2>' + inline(l.slice(3)) + '</h2>');
+          continue;
+        }
+        if (/^# /.test(l)) {
+          flushPara(); flushList();
+          out.push('<h1>' + inline(l.slice(2)) + '</h1>');
+          continue;
+        }
+        if (/^---+$/.test(l.trim())) {
+          flushPara(); flushList();
+          out.push('<hr>');
+          continue;
+        }
+        if (/^&gt; /.test(l)) {
+          flushPara(); flushList();
+          out.push('<blockquote>' + inline(l.slice(5)) + '</blockquote>');
+          continue;
+        }
+        const ulMatch = l.match(/^[-*] (.*)/);
+        if (ulMatch) {
+          flushPara();
+          if (listType !== 'ul') { flushList(); out.push('<ul>'); listType = 'ul'; }
+          out.push('<li>' + inline(ulMatch[1]) + '</li>');
+          continue;
+        }
+        const olMatch = l.match(/^\d+\. (.*)/);
+        if (olMatch) {
+          flushPara();
+          if (listType !== 'ol') { flushList(); out.push('<ol>'); listType = 'ol'; }
+          out.push('<li>' + inline(olMatch[1]) + '</li>');
+          continue;
+        }
+        if (l.trim() === '') {
+          flushList(); flushPara();
+          continue;
+        }
+        flushList();
+        paraLines.push(l);
+      }
+      flushList();
+      flushPara();
+      return out.join('\n');
+    }
+
+    /* ── Helpers ── */
+    function hhMM() {
+      const d = new Date();
+      return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    }
+
+    function scrollBottom() {
+      const el = document.getElementById('chat-area');
+      el.scrollTop = el.scrollHeight;
+    }
+
+    /* ── UI manipulation ── */
+    function showEmptyState()  { document.getElementById('empty-state').style.display = ''; }
+    function hideEmptyState()  { document.getElementById('empty-state').style.display = 'none'; }
+
+    function appendUserMsg(text) {
+      hideEmptyState();
+      const el = document.createElement('div');
+      el.className = 'msg msg-user';
+      el.innerHTML = '<div class="msg-body">' +
+        text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>') +
+        '</div>';
+      document.getElementById('messages').appendChild(el);
+      scrollBottom();
+    }
+
+    function appendAdvisorMsg(mode) {
+      const el = document.createElement('div');
+      el.className = 'msg msg-advisor mode-' + mode;
+      el.innerHTML = '<div class="msg-meta">' + MODES[mode].name + ' · ' + hhMM() + '</div>' +
+                     '<div class="msg-body"></div>';
+      document.getElementById('messages').appendChild(el);
+      scrollBottom();
+      return el.querySelector('.msg-body');
+    }
+
+    function showTyping() {
+      const el = document.createElement('div');
+      el.id = 'typing';
+      el.className = 'msg msg-advisor mode-' + currentMode;
+      el.innerHTML = '<div class="msg-meta">' + MODES[currentMode].name + ' · ' + hhMM() + '</div>' +
+                     '<div class="typing-dots"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+      document.getElementById('messages').appendChild(el);
+      scrollBottom();
+    }
+
+    function removeTyping() {
+      const el = document.getElementById('typing');
+      if (el) el.remove();
+    }
+
+    function showError(msg) {
+      const el = document.createElement('div');
+      el.className = 'msg-error';
+      el.textContent = msg;
+      document.getElementById('messages').appendChild(el);
+      scrollBottom();
+    }
+
+    function setSendDisabled(v) {
+      document.getElementById('send-btn').disabled = v;
+      document.getElementById('message-input').disabled = v;
+    }
+
+    /* ── API call ── */
+    async function sendMessage(text) {
+      if (isStreaming) return;
+      const apiKey = getApiKey();
+      if (!apiKey) { showSetupScreen(); return; }
+
+      isStreaming = true;
+      setSendDisabled(true);
+      conversationHistory.push({ role: 'user', content: text });
+      appendUserMsg(text);
+      showTyping();
+
+      try {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: getModel(),
+            max_tokens: 1500,
+            stream: true,
+            system: buildSystemPrompt(),
+            messages: conversationHistory
+          })
+        });
+
+        if (!resp.ok) {
+          let errMsg = 'HTTP ' + resp.status;
+          try { const j = await resp.json(); errMsg = j.error?.message || errMsg; } catch(_) {}
+          throw new Error(errMsg);
+        }
+
+        removeTyping();
+        const bodyEl = appendAdvisorMsg(currentMode);
+        const reader = resp.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        let fullText = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+                fullText += parsed.delta.text;
+                bodyEl.innerHTML = renderMarkdown(fullText);
+                scrollBottom();
+              }
+            } catch(_) {}
+          }
+        }
+
+        conversationHistory.push({ role: 'assistant', content: fullText });
+
+        /* Save to Supabase after each successful exchange */
+        if (supabaseClient) {
+          if (!currentChatId) {
+            currentChatId = await dbCreateChat(currentMode, conversationHistory);
+          } else {
+            await dbUpdateChat(currentChatId, conversationHistory);
+          }
+          await refreshSidebar();
+        }
+
+      } catch (err) {
+        removeTyping();
+        conversationHistory.pop();
+        showError('Error: ' + err.message);
+      } finally {
+        isStreaming = false;
+        setSendDisabled(false);
+        document.getElementById('message-input').focus();
+      }
+    }
+
+    /* ── Mode ── */
+    function setMode(mode) {
+      currentMode = mode;
+      document.body.dataset.mode = mode;
+      document.querySelectorAll('.mode-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.mode === mode);
+      });
+    }
+
+    /* ── Screens ── */
+    function showSetupScreen() {
+      document.getElementById('api-key-input').value = getApiKey();
+      document.getElementById('sb-url-input').value = getSupabaseUrl();
+      document.getElementById('sb-key-input').value = getSupabaseKey();
+      document.getElementById('setup-screen').style.display = '';
+      document.getElementById('app').style.display = 'none';
+    }
+
+    function showApp() {
+      document.getElementById('setup-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      document.getElementById('message-input').focus();
+
+      const sbReady = initSupabase();
+      document.getElementById('sidebar-toggle-btn').style.display = sbReady ? '' : 'none';
+      if (sbReady) refreshSidebar();
+    }
+
+    /* ── New chat / clear ── */
+    function clearConversation() {
+      conversationHistory = [];
+      document.getElementById('messages').innerHTML = '';
+      showEmptyState();
+    }
+
+    function newChat() {
+      currentChatId = null;
+      clearConversation();
+      if (supabaseClient) renderSidebar(cachedChats);
+    }
+
+    /* ── Init ── */
+    function init() {
+      if (!getApiKey()) {
+        showSetupScreen();
+      } else {
+        showApp();
+      }
+
+      document.getElementById('model-select').value = getModel();
+      setMode('strategic');
+
+      /* Setup */
+      document.getElementById('save-key-btn').addEventListener('click', () => {
+        const k = document.getElementById('api-key-input').value.trim();
+        if (!k) return;
+        setApiKey(k);
+        const sbUrl = document.getElementById('sb-url-input').value.trim();
+        const sbKey = document.getElementById('sb-key-input').value.trim();
+        if (sbUrl) setSupabaseUrl(sbUrl); else localStorage.removeItem('hira_sb_url');
+        if (sbKey) setSupabaseKey(sbKey); else localStorage.removeItem('hira_sb_key');
+        showApp();
+      });
+
+      document.getElementById('api-key-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('save-key-btn').click();
+      });
+
+      document.getElementById('change-key-btn').addEventListener('click', showSetupScreen);
+
+      document.getElementById('model-select').addEventListener('change', e => setModel(e.target.value));
+
+      document.getElementById('clear-btn').addEventListener('click', newChat);
+
+      /* Sidebar */
+      document.getElementById('sidebar-toggle-btn').addEventListener('click', openSidebar);
+      document.getElementById('sidebar-close-btn').addEventListener('click', closeSidebar);
+      document.getElementById('sidebar-overlay').addEventListener('click', closeSidebar);
+
+      document.querySelectorAll('.mode-tab').forEach(tab => {
+        tab.addEventListener('click', () => setMode(tab.dataset.mode));
+      });
+
+      document.querySelectorAll('.suggestion-card').forEach(card => {
+        card.addEventListener('click', () => {
+          setMode(card.dataset.mode);
+          sendMessage(card.dataset.text);
+        });
+      });
+
+      const input = document.getElementById('message-input');
+
+      document.getElementById('send-btn').addEventListener('click', () => {
+        const text = input.value.trim();
+        if (text && !isStreaming) {
+          input.value = '';
+          input.style.height = 'auto';
+          sendMessage(text);
+        }
+      });
+
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          document.getElementById('send-btn').click();
+        }
+      });
+
+      input.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
