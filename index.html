@@ -42,6 +42,28 @@
     body[data-mode="content"]    { --mode-color: var(--mode-content); }
 
 
+    /* ── Password gate ── */
+
+    #password-gate {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 32px 24px;
+    }
+
+    .gate-error {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      height: 18px;
+      margin-bottom: 16px;
+    }
+
     /* ── Setup screen ── */
 
     #setup-screen {
@@ -704,6 +726,20 @@
 
 <body data-mode="strategic">
 
+  <!-- ── Password gate ── -->
+  <div id="password-gate">
+    <div class="setup-inner">
+      <img src="caca-advisor-logo-png.png" alt="" class="setup-logo">
+      <div class="setup-wordmark">Caca Advisor</div>
+      <div class="setup-sub">Personal · Arza Nursatya</div>
+      <hr class="setup-rule">
+      <label class="setup-label" for="gate-input">Password</label>
+      <input type="password" id="gate-input" class="setup-input" autocomplete="off" spellcheck="false">
+      <div id="gate-error" class="gate-error"></div>
+      <button class="setup-btn" id="gate-btn">Enter</button>
+    </div>
+  </div>
+
   <!-- ── Setup screen ── -->
   <div id="setup-screen">
     <div class="setup-inner">
@@ -838,6 +874,8 @@
   </div>
 
   <script>
+    const CORRECT_PASSWORD = 'YOUR_PASSWORD_HERE';
+
     /* ── Context document ── */
     const CONTEXT_DOCUMENT = `# Caca Advisor — Context Document
 *Paste this at the start of any session where you want Claude to operate as your personal advisor.*
@@ -1470,8 +1508,34 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
       if (supabaseClient) renderSidebar(cachedChats);
     }
 
+    /* ── Password gate ── */
+    function initGate() {
+      const gate = document.getElementById('password-gate');
+      if (localStorage.getItem('hira_gate_unlocked') === '1') {
+        gate.style.display = 'none';
+        return;
+      }
+      const input  = document.getElementById('gate-input');
+      const errEl  = document.getElementById('gate-error');
+      function attempt() {
+        if (input.value === CORRECT_PASSWORD) {
+          localStorage.setItem('hira_gate_unlocked', '1');
+          gate.style.display = 'none';
+        } else {
+          errEl.textContent = 'Incorrect.';
+          input.value = '';
+          input.focus();
+        }
+      }
+      document.getElementById('gate-btn').addEventListener('click', attempt);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
+      input.focus();
+    }
+
     /* ── Init ── */
     function init() {
+      initGate();
+
       if (!getApiKey()) {
         showSetupScreen();
       } else {
