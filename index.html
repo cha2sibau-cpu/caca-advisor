@@ -1335,38 +1335,94 @@ Reference these when relevant. Don't over-explain them — assume I know them.
       return false;
     }
 
-    async function dbCreateChat(mode, messages) {
-      if (!supabaseClient) return null;
+    /* ── Local storage history (fallback when no Supabase) ── */
+    const LOCAL_CHATS_KEY = 'hira_local_chats';
+
+    function localLoadChats() {
       try {
-        const { data, error } = await supabaseClient
-          .from('chats')
-          .insert({ mode, messages })
-          .select('id')
-          .single();
-        if (error) throw error;
-        return data.id;
-      } catch (_) { return null; }
+        return JSON.parse(localStorage.getItem(LOCAL_CHATS_KEY) || '[]');
+      } catch (_) { return []; }
+    }
+
+    function localSaveChats(chats) {
+      try {
+        localStorage.setItem(LOCAL_CHATS_KEY, JSON.stringify(chats));
+      } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+          /* strip image data and retry */
+          const slim = chats.map(c => ({
+            ...c,
+            messages: c.messages.map(m => ({
+              ...m,
+              content: Array.isArray(m.content)
+                ? m.content.filter(b => b.type !== 'image')
+                : m.content
+            }))
+          }));
+          try { localStorage.setItem(LOCAL_CHATS_KEY, JSON.stringify(slim)); } catch (_) {}
+        }
+      }
+    }
+
+    function localCreateChat(mode, messages) {
+      const id = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      const now = new Date().toISOString();
+      const chats = localLoadChats();
+      chats.unshift({ id, mode, messages, updated_at: now });
+      localSaveChats(chats);
+      return id;
+    }
+
+    function localUpdateChat(id, messages) {
+      const chats = localLoadChats();
+      const idx = chats.findIndex(c => c.id === id);
+      if (idx !== -1) {
+        chats[idx].messages = messages;
+        chats[idx].updated_at = new Date().toISOString();
+        chats.splice(0, 0, chats.splice(idx, 1)[0]); /* move to top */
+        localSaveChats(chats);
+      }
+    }
+
+    async function dbCreateChat(mode, messages) {
+      if (supabaseClient) {
+        try {
+          const { data, error } = await supabaseClient
+            .from('chats')
+            .insert({ mode, messages })
+            .select('id')
+            .single();
+          if (error) throw error;
+          return data.id;
+        } catch (_) {}
+      }
+      return localCreateChat(mode, messages);
     }
 
     async function dbUpdateChat(id, messages) {
-      if (!supabaseClient || !id) return;
-      try {
-        await supabaseClient
-          .from('chats')
-          .update({ messages, updated_at: new Date().toISOString() })
-          .eq('id', id);
-      } catch (_) {}
+      if (supabaseClient && id && !id.startsWith('local_')) {
+        try {
+          await supabaseClient
+            .from('chats')
+            .update({ messages, updated_at: new Date().toISOString() })
+            .eq('id', id);
+          return;
+        } catch (_) {}
+      }
+      localUpdateChat(id, messages);
     }
 
     async function dbLoadChats() {
-      if (!supabaseClient) return [];
-      try {
-        const { data } = await supabaseClient
-          .from('chats')
-          .select('id, mode, messages, updated_at')
-          .order('updated_at', { ascending: false });
-        return data || [];
-      } catch (_) { return []; }
+      if (supabaseClient) {
+        try {
+          const { data } = await supabaseClient
+            .from('chats')
+            .select('id, mode, messages, updated_at')
+            .order('updated_at', { ascending: false });
+          return data || [];
+        } catch (_) {}
+      }
+      return localLoadChats();
     }
 
     /* ── Sidebar ── */
@@ -1432,7 +1488,7 @@ Reference these when relevant. Don't over-explain them — assume I know them.
     function openSidebar() {
       document.getElementById('sidebar').classList.add('open');
       document.getElementById('sidebar-overlay').classList.add('visible');
-      if (supabaseClient) refreshSidebar();
+      refreshSidebar();
     }
 
     function closeSidebar() {
@@ -1744,15 +1800,13 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
 
         conversationHistory.push({ role: 'assistant', content: fullText });
 
-        /* Save to Supabase after each successful exchange */
-        if (supabaseClient) {
-          if (!currentChatId) {
-            currentChatId = await dbCreateChat(currentMode, conversationHistory);
-          } else {
-            await dbUpdateChat(currentChatId, conversationHistory);
-          }
-          await refreshSidebar();
+        /* Save after each successful exchange */
+        if (!currentChatId) {
+          currentChatId = await dbCreateChat(currentMode, conversationHistory);
+        } else {
+          await dbUpdateChat(currentChatId, conversationHistory);
         }
+        await refreshSidebar();
 
       } catch (err) {
         removeTyping();
@@ -1788,9 +1842,9 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
       document.getElementById('app').style.display = 'flex';
       document.getElementById('message-input').focus();
 
-      const sbReady = initSupabase();
-      document.getElementById('sidebar-toggle-btn').style.display = sbReady ? '' : 'none';
-      if (sbReady) refreshSidebar();
+      initSupabase();
+      document.getElementById('sidebar-toggle-btn').style.display = '';
+      refreshSidebar();
     }
 
     /* ── New chat / clear ── */
@@ -1804,7 +1858,7 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
       currentChatId = null;
       clearConversation();
       randomizeSuggestions();
-      if (supabaseClient) renderSidebar(cachedChats);
+      renderSidebar(cachedChats);
     }
 
     /* ── Password gate ── */
