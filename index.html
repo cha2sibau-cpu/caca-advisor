@@ -762,6 +762,53 @@
     .btn-attach:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-attach svg { width: 16px; height: 16px; fill: currentColor; }
 
+    .context-pill-area {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 10px 4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .context-pill-area:empty { display: none; }
+
+    .context-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: color-mix(in srgb, var(--mode-color) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--mode-color) 30%, transparent);
+      border-radius: 4px;
+      padding: 3px 6px 3px 8px;
+      font-size: 11px;
+      color: var(--ink-soft);
+      max-width: 240px;
+    }
+
+    .context-pill span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .context-pill-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--ink-faint);
+      font-size: 14px;
+      padding: 0;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .context-pill-remove:hover { color: var(--ink); }
+
+    .btn-attach.has-context {
+      border-color: var(--mode-color);
+      color: var(--mode-color);
+    }
+
     .image-previews {
       display: flex;
       flex-wrap: wrap;
@@ -1063,15 +1110,22 @@
     </div>
 
     <input type="file" id="image-input" accept="image/*" multiple style="display:none">
+    <input type="file" id="context-input" accept=".md,.txt" style="display:none">
 
     <div id="lightbox"><img id="lightbox-img" src=""></div>
 
     <div class="input-area">
       <div class="input-inner">
         <div class="input-wrap">
+          <div id="context-pill-area" class="context-pill-area"></div>
           <div id="image-previews" class="image-previews"></div>
           <textarea id="message-input" placeholder="Write something…" rows="1"></textarea>
         </div>
+        <button class="btn-attach" id="context-btn" aria-label="Attach context document" title="Attach .md context">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/>
+          </svg>
+        </button>
         <button class="btn-attach" id="attach-btn" aria-label="Attach image" title="Attach image">
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66L9.41 17.41a2 2 0 01-2.83-2.83l8.49-8.48"/>
@@ -1312,6 +1366,7 @@ Reference these when relevant. Don't over-explain them — assume I know them.
     let supabaseClient = null;
     let cachedChats = [];
     let pendingImages = [];
+    let sessionContext = null;
 
     /* ── Storage ── */
     const getApiKey      = () => localStorage.getItem('hira_advisor_api_key') || '';
@@ -1549,7 +1604,7 @@ Reference these when relevant. Don't over-explain them — assume I know them.
     /* ── System prompt ── */
     function buildSystemPrompt() {
       const mode = MODES[currentMode];
-      return `${CONTEXT_DOCUMENT}
+      let prompt = `${CONTEXT_DOCUMENT}
 
 ---
 
@@ -1560,6 +1615,10 @@ ${mode.addendum}
 
 ADVISOR IDENTITY:
 You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indonesian advertising production industry, photography as a craft and business, human capital development, marketing/brand strategy. You operate across all three modes fluidly. You are not a cheerleader — you are a thinking partner who respects Arza's intelligence and time. You ask questions before giving answers when the situation calls for it. You are direct, calm, and honest. You never give generic advice. You never flatter. When Arza is venting, you let them finish before problem-solving. You default to English but mirror Indonesian if Arza writes in Indonesian.`;
+      if (sessionContext) {
+        prompt += `\n\n---\n\nADDITIONAL SESSION CONTEXT (${sessionContext.name}):\n\n${sessionContext.content}`;
+      }
+      return prompt;
     }
 
     /* ── Markdown renderer ── */
@@ -1719,6 +1778,7 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
     function setSendDisabled(v) {
       document.getElementById('send-btn').disabled = v;
       document.getElementById('attach-btn').disabled = v;
+      document.getElementById('context-btn').disabled = v;
       document.getElementById('message-input').disabled = v;
     }
 
@@ -1856,6 +1916,8 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
 
     function newChat() {
       currentChatId = null;
+      sessionContext = null;
+      if (typeof renderContextPill === 'function') renderContextPill();
       clearConversation();
       randomizeSuggestions();
       renderSidebar(cachedChats);
@@ -1958,6 +2020,36 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
         });
         document.getElementById('attach-btn').classList.toggle('has-images', pendingImages.length > 0);
       }
+
+      /* ── Context (.md) attach ── */
+      function renderContextPill() {
+        const area = document.getElementById('context-pill-area');
+        area.innerHTML = '';
+        if (sessionContext) {
+          const pill = document.createElement('div');
+          pill.className = 'context-pill';
+          pill.innerHTML = `<span>${sessionContext.name}</span><button class="context-pill-remove" title="Remove context">×</button>`;
+          pill.querySelector('.context-pill-remove').addEventListener('click', () => {
+            sessionContext = null;
+            renderContextPill();
+          });
+          area.appendChild(pill);
+        }
+        document.getElementById('context-btn').classList.toggle('has-context', !!sessionContext);
+      }
+
+      document.getElementById('context-btn').addEventListener('click', () => {
+        document.getElementById('context-input').click();
+      });
+
+      document.getElementById('context-input').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const content = await file.text();
+        sessionContext = { name: file.name, content };
+        renderContextPill();
+        e.target.value = '';
+      });
 
       document.getElementById('attach-btn').addEventListener('click', () => {
         document.getElementById('image-input').click();
