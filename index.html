@@ -38,8 +38,19 @@
       overflow: hidden;
     }
 
-    body[data-mode="strategic"]  { --mode-color: var(--mode-strategic); }
-    body[data-mode="content"]    { --mode-color: var(--mode-content); }
+    body[data-mode="strategic"] {
+      --bg:         #f5f2ed;
+      --surface:    #ede9e2;
+      --border:     #d0cbc2;
+      --mode-color: var(--mode-strategic);
+    }
+
+    body[data-mode="content"] {
+      --bg:         #eff3ee;
+      --surface:    #e4ebe3;
+      --border:     #c6d0c5;
+      --mode-color: var(--mode-content);
+    }
 
 
     /* ── Password gate ── */
@@ -202,6 +213,7 @@
 
     header {
       background: var(--bg);
+      border-top: 2px solid var(--mode-color);
       border-bottom: 1px solid var(--border);
       padding: 0 28px;
       height: 54px;
@@ -1134,6 +1146,45 @@ Reference these when relevant. Don't over-explain them — assume I know them.
       },
     };
 
+    /* ── Suggestion prompts ── */
+    const SUGGESTIONS = {
+      strategic: [
+        "I want to think through whether HIRA should start targeting PR agencies.",
+        "Help me figure out if HIRA's pricing is protecting our positioning or costing us briefs.",
+        "I need to think through how to handle Edna as a structural obstacle without making it a conflict.",
+        "HIRA's visibility problem — where do we actually start fixing it?",
+        "Should HIRA be doing anything differently to develop Ester's niche right now?",
+        "Help me think through whether Yusef's stall in the apprenticeship is my problem to solve.",
+        "I'm quietly weighing whether to stay at HIRA for the long term. Help me think it through.",
+        "Is our current roster composition a competitive strength or a liability?",
+        "Help me think through how HIRA positions itself when clients use AI to bypass production entirely.",
+        "What would it actually take to stop losing FMCG briefs to Willy Koesnadi?",
+      ],
+      content: [
+        "I shot a sardine campaign last month. Help me find a story worth telling.",
+        "I have a set of images from a kids' shoot I'm proud of but don't know how to talk about.",
+        "I want to write something about why production quality matters more now, not less, under AI.",
+        "Help me find an angle on what it looks like to mentor a photographer who doesn't believe in themselves yet.",
+        "I have behind-the-scenes from a complex compositing job. What's the story hook?",
+        "I want to post something on LinkedIn but it can't feel like self-promotion. Help me find the frame.",
+        "I shot a beauty campaign recently. There's a story in how we handled the lighting setup.",
+        "Help me articulate what HIRA's production standard actually means — not in marketing language.",
+        "I've been shooting commercially for years and I still don't know how to talk about my own work.",
+        "There's a project I keep thinking about but have never written about. Help me figure out why.",
+      ],
+    };
+
+    function randomizeSuggestions() {
+      const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+      document.querySelectorAll('.suggestion-card').forEach(card => {
+        const mode = card.dataset.mode;
+        if (!SUGGESTIONS[mode]) return;
+        const text = pick(SUGGESTIONS[mode]);
+        card.dataset.text = text;
+        card.querySelector('.sug-text').textContent = text;
+      });
+    }
+
     /* ── State ── */
     let conversationHistory = [];
     let currentMode = 'strategic';
@@ -1588,6 +1639,7 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
     function newChat() {
       currentChatId = null;
       clearConversation();
+      randomizeSuggestions();
       if (supabaseClient) renderSidebar(cachedChats);
     }
 
@@ -1627,6 +1679,7 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
 
       document.getElementById('model-select').value = getModel();
       setMode('strategic');
+      randomizeSuggestions();
 
       /* Setup */
       document.getElementById('save-key-btn').addEventListener('click', () => {
