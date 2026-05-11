@@ -1469,7 +1469,7 @@ Reference these when relevant. Don't over-explain them — assume I know them.
             .single();
           if (error) throw error;
           return data.id;
-        } catch (_) {}
+        } catch (e) { console.error('[Supabase] dbCreateChat failed:', e); }
       }
       return localCreateChat(mode, messages);
     }
@@ -1482,7 +1482,7 @@ Reference these when relevant. Don't over-explain them — assume I know them.
             .update({ messages, updated_at: new Date().toISOString() })
             .eq('id', id);
           return;
-        } catch (_) {}
+        } catch (e) { console.error('[Supabase] dbUpdateChat failed:', e); }
       }
       localUpdateChat(id, messages);
     }
