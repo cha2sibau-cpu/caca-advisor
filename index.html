@@ -665,6 +665,26 @@
       margin-bottom: 20px;
     }
 
+    .save-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: var(--ink-dim);
+      color: var(--paper);
+      font-size: 12px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    .save-toast.visible {
+      opacity: 0.85;
+      transform: translateX(-50%) translateY(0);
+    }
+
     /* ── Input area ── */
 
     .input-area {
@@ -1775,6 +1795,15 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
       scrollBottom();
     }
 
+    function showSaveToast() {
+      const t = document.createElement('div');
+      t.className = 'save-toast';
+      t.textContent = 'Saved to history';
+      document.body.appendChild(t);
+      setTimeout(() => t.classList.add('visible'), 10);
+      setTimeout(() => { t.classList.remove('visible'); setTimeout(() => t.remove(), 300); }, 2000);
+    }
+
     function setSendDisabled(v) {
       document.getElementById('send-btn').disabled = v;
       document.getElementById('attach-btn').disabled = v;
@@ -1861,12 +1890,14 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
         conversationHistory.push({ role: 'assistant', content: fullText });
 
         /* Save after each successful exchange */
+        const wasNew = !currentChatId;
         if (!currentChatId) {
           currentChatId = await dbCreateChat(currentMode, conversationHistory);
         } else {
           await dbUpdateChat(currentChatId, conversationHistory);
         }
         await refreshSidebar();
+        if (wasNew) showSaveToast();
 
       } catch (err) {
         removeTyping();
@@ -1897,14 +1928,15 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
       document.getElementById('app').style.display = 'none';
     }
 
-    function showApp() {
+    async function showApp() {
       document.getElementById('setup-screen').style.display = 'none';
       document.getElementById('app').style.display = 'flex';
       document.getElementById('message-input').focus();
 
       initSupabase();
       document.getElementById('sidebar-toggle-btn').style.display = '';
-      refreshSidebar();
+      await refreshSidebar();
+      if (cachedChats.length > 0) openSidebar();
     }
 
     /* ── New chat / clear ── */
