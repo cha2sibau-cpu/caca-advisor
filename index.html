@@ -1837,7 +1837,7 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
 
       try {
         // Build API messages — inject context hint on first message, never stored
-        let apiMessages = conversationHistory;
+        let apiMessages = [...conversationHistory];
         if (sessionContext && conversationHistory.length === 1) {
           const injection = `[Context note: You have been given a document called "${sessionContext.name}". In this response, briefly surface 2–3 things you've understood from it that are relevant to what I'm asking, before answering.]`;
           const firstContent = conversationHistory[0].content;
