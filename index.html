@@ -1831,22 +1831,22 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
         userContent = text;
       }
 
-      // First-message context injection: fires once, never stored in UI
-      const isFirstMessage = conversationHistory.length === 0;
-      if (sessionContext && isFirstMessage) {
-        const injection = `[Context note: You have been given a document called "${sessionContext.name}". In this response, briefly surface 2–3 things you've understood from it that are relevant to what I'm asking, before answering.]`;
-        if (Array.isArray(userContent)) {
-          userContent = [{ type: 'text', text: injection }, ...userContent];
-        } else {
-          userContent = injection + '\n\n' + userContent;
-        }
-      }
-
       conversationHistory.push({ role: 'user', content: userContent });
       appendUserMsg(text, images);
       showTyping();
 
       try {
+        // Build API messages — inject context hint on first message, never stored
+        let apiMessages = conversationHistory;
+        if (sessionContext && conversationHistory.length === 1) {
+          const injection = `[Context note: You have been given a document called "${sessionContext.name}". In this response, briefly surface 2–3 things you've understood from it that are relevant to what I'm asking, before answering.]`;
+          const firstContent = conversationHistory[0].content;
+          const injectedContent = Array.isArray(firstContent)
+            ? [{ type: 'text', text: injection }, ...firstContent]
+            : injection + '\n\n' + firstContent;
+          apiMessages = [{ role: 'user', content: injectedContent }];
+        }
+
         const resp = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
@@ -1860,7 +1860,7 @@ You are Arza's personal advisor. You have deep knowledge of HIRA Imaji, the Indo
             max_tokens: 1500,
             stream: true,
             system: buildSystemPrompt(),
-            messages: conversationHistory
+            messages: apiMessages
           })
         });
 
